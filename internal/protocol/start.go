@@ -31,7 +31,7 @@ type PlayerInfo struct {
 // NodeDef is a static node entry in start.nodes[].
 type NodeDef struct {
 	NodeID   string `json:"nodeId"`
-	Code     int    `json:"code,omitempty"`
+	Code     string `json:"code,omitempty"`
 	Name     string `json:"name,omitempty"`
 	X        int    `json:"x"`
 	Y        int    `json:"y"`
