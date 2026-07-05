@@ -65,7 +65,7 @@ func main() {
 	}
 	var start protocol.StartMessage
 	if err := json.Unmarshal(env.MsgData, &start); err != nil {
-		log.Fatalf("unmarshal start: %v", err)
+		log.Errorf("unmarshal start (partial parse, continuing): %v", err)
 	}
 	log.Infof("match %s started; duration=%d rounds; %d nodes, %d edges",
 		start.MatchID, start.DurationRound, len(start.Nodes), len(start.Edges))

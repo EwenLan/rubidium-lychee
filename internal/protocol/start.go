@@ -29,9 +29,10 @@ type PlayerInfo struct {
 }
 
 // NodeDef is a static node entry in start.nodes[].
+// Note: protocol doc says code is String, but the real server sends int.
 type NodeDef struct {
 	NodeID   string `json:"nodeId"`
-	Code     string `json:"code,omitempty"`
+	Code     int    `json:"code,omitempty"`
 	Name     string `json:"name,omitempty"`
 	X        int    `json:"x"`
 	Y        int    `json:"y"`
