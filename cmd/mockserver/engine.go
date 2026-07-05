@@ -70,6 +70,7 @@ type engine struct {
 
 	// Last frame's main-cart action (for actionResults[]).
 	lastAction         string
+	lastActionRound    int
 	lastActionAccepted bool
 	lastActionResult   string
 	lastActionError    string
@@ -184,6 +185,7 @@ func (e *engine) applyActions(actions []protocol.Action) {
 	// Reset per-frame state.
 	e.events = nil
 	e.lastAction = ""
+	e.lastActionRound = 0
 	e.lastActionAccepted = false
 	e.lastActionResult = ""
 	e.lastActionError = ""
@@ -207,6 +209,7 @@ func (e *engine) applyActions(actions []protocol.Action) {
 	if mainCount > 1 {
 		mainAct = nil
 		e.lastAction = actions[0].Action
+		e.lastActionRound = e.round
 		e.lastActionAccepted = false
 		e.lastActionResult = "INVALID_ACTION"
 		e.lastActionError = "INVALID_ACTION_CONFLICT"
@@ -218,6 +221,7 @@ func (e *engine) applyActions(actions []protocol.Action) {
 		prevState := e.cartState
 		e.applyMainCartAction(*mainAct)
 		e.lastAction = mainAct.Action
+		e.lastActionRound = e.round
 		e.lastActionAccepted = true
 		// Detect if the action took effect (state changed or action was WAIT).
 		if mainAct.Action == protocol.ActionWait ||
@@ -539,7 +543,7 @@ func (e *engine) buildActionResults() []protocol.ActionResult {
 		return nil
 	}
 	ar := protocol.ActionResult{
-		Round:     e.round,
+		Round:     e.lastActionRound,
 		PlayerID:  e.playerID,
 		Action:    e.lastAction,
 		Accepted:  e.lastActionAccepted,

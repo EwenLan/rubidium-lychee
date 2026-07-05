@@ -139,9 +139,7 @@ func runLive(port string, maxRounds, rushFrame, speed int, obstacles, enemyGuard
 			log.Errorf("round %d: unmarshal action: %v", eng.round, err)
 		}
 
-		if len(act.Actions) > 0 {
-			eng.applyActions(act.Actions)
-		}
+		eng.applyActions(act.Actions)
 		eng.tick()
 
 		if eng.isOver(maxRounds) {
