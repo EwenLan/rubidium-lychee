@@ -1,0 +1,1 @@
+go run ./cmd/mockserver --mode replay --replay logs/client.log --port 8086 + go run . --port 8086 --log-file client-replay.log
