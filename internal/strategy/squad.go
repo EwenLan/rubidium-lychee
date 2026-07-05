@@ -61,13 +61,17 @@ func (s *Strategy) evaluateIntents(state *game.State, gameMap *game.GameMap) []S
 	// --- Skeleton intents (proactive, timing-critical) ---
 
 	// scout_gate: main cart within 15 frames of gate, no marker, not verified.
-	if !self.Verified && s.lastPred != nil && s.lastPred.GateFrame > 0 {
+	gateID := s.gateID
+	if gateID == "" {
+		gateID = gameMap.GateID
+	}
+	if !self.Verified && s.lastPred != nil && s.lastPred.GateFrame > 0 && gateID != "" {
 		framesToGate := s.lastPred.GateFrame - state.Round
 		if framesToGate > 0 && framesToGate <= 15 {
-			if !hasOwnScoutMarker(state, gameMap.GateID) && !s.hasInFlight(protocol.ActionSquadScout, gameMap.GateID) {
+			if !hasOwnScoutMarker(state, gateID) && !s.hasInFlight(protocol.ActionSquadScout, gateID) {
 				intents = append(intents, SquadIntent{
 					Name: "scout_gate", Priority: 100,
-					Action: protocol.ActionSquadScout, Target: gameMap.GateID,
+					Action: protocol.ActionSquadScout, Target: gateID,
 				})
 			}
 		}

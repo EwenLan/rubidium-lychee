@@ -47,11 +47,23 @@ func (s *Strategy) predictArrivals(state *game.State, gameMap *game.GameMap, pla
 		currentNode = nextNode
 	}
 
-	if f, ok := pred.NodeArrival[gameMap.GateID]; ok {
-		pred.GateFrame = f
+	if s.gateID != "" {
+		if f, ok := pred.NodeArrival[s.gateID]; ok {
+			pred.GateFrame = f
+		}
+	} else if gameMap.GateID != "" {
+		if f, ok := pred.NodeArrival[gameMap.GateID]; ok {
+			pred.GateFrame = f
+		}
 	}
-	if f, ok := pred.NodeArrival[gameMap.TerminalID]; ok {
-		pred.TerminalFrame = f
+	if s.terminalID != "" {
+		if f, ok := pred.NodeArrival[s.terminalID]; ok {
+			pred.TerminalFrame = f
+		}
+	} else if gameMap.TerminalID != "" {
+		if f, ok := pred.NodeArrival[gameMap.TerminalID]; ok {
+			pred.TerminalFrame = f
+		}
 	}
 	return pred
 }

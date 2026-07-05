@@ -5,19 +5,19 @@ import "encoding/json"
 // StartMessage is the static match info sent by the server after both
 // clients have sent registration.
 type StartMessage struct {
-	MatchID       string         `json:"matchId"`
-	RulesVersion  string         `json:"rulesVersion,omitempty"`
-	SeedHash      string         `json:"seedHash,omitempty"`
-	Round         int            `json:"round"`
-	Tick          int            `json:"tick,omitempty"`
-	DurationRound int            `json:"durationRound"`
-	Map           MapConfig      `json:"map"`
-	Players       []PlayerInfo   `json:"players"`
-	Nodes         []NodeDef      `json:"nodes"`
-	Edges         []EdgeDef      `json:"edges"`
+	MatchID       string            `json:"matchId"`
+	RulesVersion  string            `json:"rulesVersion,omitempty"`
+	SeedHash      string            `json:"seedHash,omitempty"`
+	Round         int               `json:"round"`
+	Tick          int               `json:"tick,omitempty"`
+	DurationRound int               `json:"durationRound"`
+	Map           MapConfig         `json:"map"`
+	Players       []PlayerInfo      `json:"players"`
+	Nodes         []NodeDef         `json:"nodes"`
+	Edges         []EdgeDef         `json:"edges"`
 	RoutePaths    []json.RawMessage `json:"routePaths,omitempty"`
-	Resources     []ResourceDef  `json:"resources"`
-	TaskTemplates []TaskTemplate `json:"taskTemplates"`
+	Resources     []ResourceDef     `json:"resources"`
+	TaskTemplates []TaskTemplate    `json:"taskTemplates"`
 }
 
 // PlayerInfo is a player entry in start.players[].
@@ -31,7 +31,7 @@ type PlayerInfo struct {
 // NodeDef is a static node entry in start.nodes[].
 type NodeDef struct {
 	NodeID   string `json:"nodeId"`
-	Code     string `json:"code,omitempty"`
+	Code     int    `json:"code,omitempty"`
 	Name     string `json:"name,omitempty"`
 	X        int    `json:"x"`
 	Y        int    `json:"y"`
@@ -78,27 +78,27 @@ type TaskTemplate struct {
 
 // MapConfig is start.map.
 type MapConfig struct {
-	SchemaVersion string        `json:"schemaVersion,omitempty"`
-	MapID         string        `json:"mapId,omitempty"`
-	MapName       string        `json:"mapName,omitempty"`
-	DesignVersion string        `json:"designVersion,omitempty"`
-	MapConfigFile string        `json:"mapConfigFile,omitempty"`
-	Data          string        `json:"data,omitempty"`
-	MaxX          int           `json:"maxX,omitempty"`
-	MaxY          int           `json:"maxY,omitempty"`
-	Nodes         []NodeDef     `json:"nodes,omitempty"`
-	Edges         []EdgeDef     `json:"edges,omitempty"`
-	Gameplay      Gameplay      `json:"gameplay"`
+	SchemaVersion string    `json:"schemaVersion,omitempty"`
+	MapID         string    `json:"mapId,omitempty"`
+	MapName       string    `json:"mapName,omitempty"`
+	DesignVersion string    `json:"designVersion,omitempty"`
+	MapConfigFile string    `json:"mapConfigFile,omitempty"`
+	Data          string    `json:"data,omitempty"`
+	MaxX          int       `json:"maxX,omitempty"`
+	MaxY          int       `json:"maxY,omitempty"`
+	Nodes         []NodeDef `json:"nodes,omitempty"`
+	Edges         []EdgeDef `json:"edges,omitempty"`
+	Gameplay      Gameplay  `json:"gameplay"`
 }
 
 // Gameplay is start.map.gameplay.
 type Gameplay struct {
-	Roles                  Roles             `json:"roles"`
-	Resources              []ResourceDef     `json:"resources,omitempty"`
-	ProcessNodes           []ProcessNodeDef  `json:"processNodes,omitempty"`
-	TaskCandidates         map[string][]string `json:"taskCandidates,omitempty"`
-	RouteTaskBuckets       map[string][]string `json:"routeTaskBuckets,omitempty"`
-	ObstacleCandidateNodeIDs []string        `json:"obstacleCandidateNodeIds,omitempty"`
+	Roles                    Roles               `json:"roles"`
+	Resources                []ResourceDef       `json:"resources,omitempty"`
+	ProcessNodes             []ProcessNodeDef    `json:"processNodes,omitempty"`
+	TaskCandidates           map[string][]string `json:"taskCandidates,omitempty"`
+	RouteTaskBuckets         map[string][]string `json:"routeTaskBuckets,omitempty"`
+	ObstacleCandidateNodeIDs []string            `json:"obstacleCandidateNodeIds,omitempty"`
 }
 
 // Roles is start.map.gameplay.roles.
@@ -113,8 +113,8 @@ type Roles struct {
 
 // ProcessNodeDef is start.map.gameplay.processNodes[].
 type ProcessNodeDef struct {
-	NodeID      string `json:"nodeId"`
-	ProcessType string `json:"processType"`
-	ProcessRound int   `json:"processRound"`
-	CanWindow   bool   `json:"canWindow"`
+	NodeID       string `json:"nodeId"`
+	ProcessType  string `json:"processType"`
+	ProcessRound int    `json:"processRound"`
+	CanWindow    bool   `json:"canWindow"`
 }

@@ -25,6 +25,15 @@ type Strategy struct {
 	// Latest plan + prediction (computed each frame, used by squad intents).
 	lastPlan *PathPlan
 	lastPred *ArrivalPrediction
+
+	// MOVE rejection tracking: if we sent MOVE but cart is still IDLE next
+	// frame, the MOVE was rejected (e.g. PROCESS_REQUIRED). Fall back to PROCESS.
+	lastMoveTarget string
+	moveRejected   bool
+
+	// Resolved gate/terminal IDs (cached, with fallback from state.Nodes).
+	gateID     string
+	terminalID string
 }
 
 // New returns a fresh Strategy.
@@ -48,6 +57,22 @@ func (s *Strategy) Decide(state *game.State, gameMap *game.GameMap) []protocol.A
 		s.selfTeamID = self.TeamID
 	}
 
+	// Resolve gate/terminal IDs (from gameMap, fallback to state.Nodes by nodeType).
+	s.resolveRoleIDs(state, gameMap)
+
+	// Detect MOVE rejection: if we sent MOVE last frame but cart is still
+	// IDLE at the same node, the server rejected it (likely PROCESS_REQUIRED).
+	if s.moveRejected {
+		s.processedAt[self.CurrentNodeID] = false
+		s.processingAt = ""
+		s.moveRejected = false
+		log.Infof("round %d: MOVE rejected, will try PROCESS at %s", state.Round, self.CurrentNodeID)
+	}
+	if s.lastMoveTarget != "" && self.State == protocol.StateIdle && self.CurrentNodeID == s.prevNode {
+		s.moveRejected = true
+	}
+	s.lastMoveTarget = ""
+
 	// Update opponent model every frame.
 	s.updateOpponent(state, gameMap)
 
@@ -67,19 +92,25 @@ func (s *Strategy) Decide(state *game.State, gameMap *game.GameMap) []protocol.A
 	}
 
 	// Plan path + predict arrivals every frame (adaptive).
-	target := gameMap.TerminalID
+	target := s.terminalID
 	if !self.Verified {
-		target = gameMap.GateID
+		target = s.gateID
+	}
+	if target == "" {
+		log.Errorf("round %d: cannot resolve target (gate=%s terminal=%s)", state.Round, s.gateID, s.terminalID)
+		return nil
 	}
 	s.lastPlan = s.planPath(state, gameMap, self.CurrentNodeID, target)
 	s.lastPred = s.predictArrivals(state, gameMap, s.lastPlan)
 
-	// Update in-flight squads (remove landed).
-	s.updateInFlight(state.Round)
-
-	if s.lastPlan != nil && len(s.lastPlan.Blockers) > 0 {
+	if s.lastPlan == nil {
+		log.Warnf("round %d: no path from %s to %s", state.Round, self.CurrentNodeID, target)
+	} else if len(s.lastPlan.Blockers) > 0 {
 		log.Debugf("round %d: path to %s has %d blockers", state.Round, target, len(s.lastPlan.Blockers))
 	}
+
+	// Update in-flight squads (remove landed).
+	s.updateInFlight(state.Round)
 
 	// Collect actions: at most 1 main cart + 1 squad.
 	var actions []protocol.Action
@@ -92,6 +123,46 @@ func (s *Strategy) Decide(state *game.State, gameMap *game.GameMap) []protocol.A
 	return actions
 }
 
+// resolveRoleIDs resolves gate and terminal IDs from gameMap, falling back
+// to state.Nodes by nodeType if gameMap doesn't have them.
+func (s *Strategy) resolveRoleIDs(state *game.State, gameMap *game.GameMap) {
+	if s.gateID == "" {
+		s.gateID = gameMap.GateID
+	}
+	if s.terminalID == "" {
+		s.terminalID = gameMap.TerminalID
+	}
+	// Fallback: search state.Nodes by nodeType.
+	if s.gateID == "" {
+		for id, ns := range state.Nodes {
+			if ns.NodeType == "GATE" {
+				s.gateID = id
+				break
+			}
+		}
+	}
+	if s.terminalID == "" {
+		for id, ns := range state.Nodes {
+			if ns.NodeType == "FINISH" || ns.Terminal {
+				s.terminalID = id
+				break
+			}
+		}
+	}
+}
+
+// getProcessType returns the process type for a node, preferring the inquire's
+// per-frame state over the static gameMap (which depends on start message parsing).
+func getProcessType(state *game.State, gameMap *game.GameMap, nodeID string) string {
+	if ns := state.Node(nodeID); ns != nil && ns.ProcessType != "" {
+		return ns.ProcessType
+	}
+	if n := gameMap.Node(nodeID); n != nil {
+		return n.ProcessType
+	}
+	return ""
+}
+
 // decideMainCart returns the main-cart action for this frame, or nil.
 func (s *Strategy) decideMainCart(state *game.State, gameMap *game.GameMap) *protocol.Action {
 	self := state.Self
@@ -101,15 +172,15 @@ func (s *Strategy) decideMainCart(state *game.State, gameMap *game.GameMap) *pro
 		return nil
 	}
 
-	// At S14 + RUSH + not verified: verify.
-	if self.CurrentNodeID == gameMap.GateID &&
+	// At gate + RUSH + not verified: verify.
+	if self.CurrentNodeID == s.gateID &&
 		state.Phase == protocol.PhaseRush &&
 		!self.Verified {
-		return &protocol.Action{Action: protocol.ActionVerifyGate, TargetNodeID: gameMap.GateID}
+		return &protocol.Action{Action: protocol.ActionVerifyGate, TargetNodeID: s.gateID}
 	}
 
-	// At S15 + verified: deliver.
-	if self.CurrentNodeID == gameMap.TerminalID &&
+	// At terminal + verified: deliver.
+	if self.CurrentNodeID == s.terminalID &&
 		self.Verified &&
 		self.GoodFruit > 0 &&
 		self.Freshness > 0 {
@@ -117,17 +188,28 @@ func (s *Strategy) decideMainCart(state *game.State, gameMap *game.GameMap) *pro
 	}
 
 	// At process node (non-VERIFY) + not yet processed: process.
-	node := gameMap.Node(self.CurrentNodeID)
-	if node != nil &&
-		node.ProcessType != "" &&
-		node.ProcessType != "VERIFY" &&
-		!s.processedAt[self.CurrentNodeID] {
+	// Use inquire's processType (state.Nodes) first, fallback to gameMap.
+	pt := getProcessType(state, gameMap, self.CurrentNodeID)
+	if pt != "" && pt != "VERIFY" && !s.processedAt[self.CurrentNodeID] {
 		return &protocol.Action{Action: protocol.ActionProcess, TargetNodeID: self.CurrentNodeID}
 	}
 
 	// MOVE along the planned path. If next step is blocked, wait for squad
 	// to clear/weaken it (squad intent handles this).
 	if s.lastPlan == nil || len(s.lastPlan.Nodes) < 2 {
+		// No planned path — try basic shortest path as fallback.
+		path, _ := gameMap.ShortestPath(self.CurrentNodeID, s.gateID)
+		if !self.Verified && path != nil && len(path) >= 2 {
+			next := path[1]
+			s.lastMoveTarget = next
+			return &protocol.Action{Action: protocol.ActionMove, TargetNodeID: next}
+		}
+		path, _ = gameMap.ShortestPath(self.CurrentNodeID, s.terminalID)
+		if path != nil && len(path) >= 2 {
+			next := path[1]
+			s.lastMoveTarget = next
+			return &protocol.Action{Action: protocol.ActionMove, TargetNodeID: next}
+		}
 		return nil
 	}
 	nextNode := s.lastPlan.Nodes[1]
@@ -137,5 +219,6 @@ func (s *Strategy) decideMainCart(state *game.State, gameMap *game.GameMap) *pro
 			return nil
 		}
 	}
+	s.lastMoveTarget = nextNode
 	return &protocol.Action{Action: protocol.ActionMove, TargetNodeID: nextNode}
 }
